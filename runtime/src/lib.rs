@@ -44,6 +44,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 pub use pallet_poe;
+pub use pallet_kitties;
 /// Import the template pallet.
 pub use pallet_template;
 /// An index to a block.
@@ -274,6 +275,20 @@ impl pallet_poe::Config for Runtime {
 	type MaxClaimLength = ConstU32<512>;
 }
 
+parameter_types! {
+	pub const KittyStake: u128 = 1_000;
+}
+
+/// 为Runtime实现pallet_kitties配置接口
+impl pallet_kitties::Config for Runtime {
+	type Event = Event;
+	type Randomness = RandomnessCollectiveFlip;
+
+	type KittyIndex = u32;
+	type KittyStake = KittyStake;
+	type Currency = Balances;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -291,7 +306,8 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
-		PoeModule: pallet_poe
+		PoeModule: pallet_poe,
+		KittiesModule: pallet_kitties,
 	}
 );
 
