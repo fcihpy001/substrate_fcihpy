@@ -277,16 +277,17 @@ impl pallet_poe::Config for Runtime {
 
 parameter_types! {
 	pub const KittyStake: u128 = 1_000;
+	pub const MaxKittyIndex: u32 = 5;
 }
 
 /// 为Runtime实现pallet_kitties配置接口
 impl pallet_kitties::Config for Runtime {
 	type Event = Event;
 	type Randomness = RandomnessCollectiveFlip;
-
 	type KittyIndex = u32;
 	type KittyStake = KittyStake;
 	type Currency = Balances;
+	type MaxKittyIndex = MaxKittyIndex;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
