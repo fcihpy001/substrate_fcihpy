@@ -29,12 +29,7 @@ pub mod pallet {
 		// Default  表示有默认址
 		// Bounded  包含上下边界
 		//MaxEncodedLen  最大编码长
-		type KittyIndex: Parameter 
-			+ AtLeast32BitUnsigned 
-			+ Default 
-			+ Copy 
-			+ Bounded
-			+ MaxEncodedLen;
+		type KittyIndex: Parameter + AtLeast32BitUnsigned + Default + Copy + Bounded + MaxEncodedLen;
 		// 定义操作前抵押的资产数量
 		#[pallet::constant]
 		type KittyStake: Get<BalanceOf<Self>>;
@@ -89,6 +84,7 @@ pub mod pallet {
 		KittyBred(T::AccountId, T::KittyIndex, Kitty),
 		KittyTransferred(T::AccountId, T::AccountId, T::KittyIndex),
 		KittyInSell(T::AccountId, T::KittyIndex, Option<BalanceOf<T>>),
+		KittySold(T::AccountId, T::AccountId, T::KittyIndex),
 	}
 
 	#[pallet::error]
@@ -96,7 +92,7 @@ pub mod pallet {
 		InvalidKittyId,
 		KittyIdOverflow,
 		NotOwner,
-		SameKittyId,
+		SameParentId,
 		NoBuySelf,
 		NotForSale,
 		NotEnoughBalance,
@@ -120,7 +116,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
 			// 验证父母是不是同一个kitty
-			ensure!(kitty_id_1 != kitty_id_2, Error::<T>::SameKittyId);
+			ensure!(kitty_id_1 != kitty_id_2, Error::<T>::SameParentId);
 
 			// 检查kitty_id是否存在且有效
 			let kitty_1 = Self::kitty_of_id(kitty_id_1).map_err(|_| Error::<T>::InvalidKittyId)?;
@@ -227,7 +223,7 @@ pub mod pallet {
 		fn kitty_of_id(kitty_id: T::KittyIndex) -> Result<Kitty, ()> {
 			match Self::kitties_info(kitty_id) {
 				Some(kitty) => Ok(kitty),
-				None => Err(())
+				None => Err(()),
 			}
 		}
 
