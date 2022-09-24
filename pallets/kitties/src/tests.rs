@@ -7,20 +7,53 @@ use frame_support::{assert_noop, assert_ok};
 fn create_success() {
 	new_test_ext().execute_with(|| {
 		let account_id: u64 = 1;
-		let kitty_id = 1u32;
+		let kitty_id = 0u32;
 		// 创建Kitty
 		assert_ok!(KittiesModule::create(Origin::signed(account_id)));
 		// 检查拥有者
 		assert_eq!(KittyOwner::<Test>::get(kitty_id), Some(account_id));
 		// 检查创建成功事件
-		assert_has_event!(Event::<Test>::KittyCreated(account_id, kitty_id));
+		assert_has_event!(Event::<Test>::KittyCreatedAndBreed(account_id, kitty_id));
 	});
+}
+
+#[test]
+fn test_kitty_next_id() {
+	new_test_ext().execute_with(|| {
+		let account_id: u64 = 1;
+		// kitty_id 从0开始
+		// 创建Kitty
+		assert_ok!(KittiesModule::create(Origin::signed(account_id)));
+		assert_ok!(KittiesModule::create(Origin::signed(account_id)));
+		assert_eq!(KittiesModule::next_kitty_id(), 2);
+	})
+}
+
+#[test]
+// fn test_get_id_kitty() {
+// 	new_test_ext().execute_with(|| {
+// 		let account_id: u64 = 1;
+// 		let kitty_id = 0u32;
+// 		// 创建Kitty
+// 		let kitty = KittiesModule::create(Origin::signed(account_id));
+// 		assert_eq!(KittiesModule::kitties_info(kitty_id), kitty);
+// 		// assert_eq!(Kitties::<Test>::get(kitty_id), None);
+// 	})
+// }
+
+#[test]
+fn test_stack_count() {
+	new_test_ext().execute_with(|| {
+		// todo! 如何读取配置文件中的参数值
+		// assert_eq!(KittiesModule::KittyStake::get(),200);
+		// assert_eq!(200,200);
+	})
 }
 
 #[test]
 fn create_failed_not_enough_balance() {
 	new_test_ext().execute_with(|| {
-		let account_id: u64 = 30;
+		let account_id: u64 = 3;
 		assert_noop!(
 			KittiesModule::create(Origin::signed(account_id)),
 			Error::<Test>::NotEnoughBalance
@@ -31,12 +64,11 @@ fn create_failed_not_enough_balance() {
 #[test]
 fn create_failed_overflow_id() {
 	new_test_ext().execute_with(|| {
-		LastKittyId::<Test>::put(u32::max_value());
+		NextKittyId::<Test>::put(u32::max_value());
 		let account_id: u64 = 1;
-
 		assert_noop!(
 			KittiesModule::create(Origin::signed(account_id)),
-			Error::<Test>::NotEnoughBalance
+			Error::<Test>::KittyIdOverflow
 		);
 	});
 }
@@ -47,9 +79,9 @@ fn breed_success() {
 	new_test_ext().execute_with(|| {
 		let account_id: u64 = 1;
 
-		let kitty_id_1 = 1u32;
-		let kitty_id_2 = 2u32;
-		let kitty_id_3: u32 = 3u32;
+		let kitty_id_1 = 0u32;
+		let kitty_id_2 = 1u32;
+		let kitty_id_3: u32 = 2u32;
 
 		// 创建Kitty
 		assert_ok!(KittiesModule::create(Origin::signed(account_id)));
@@ -59,23 +91,23 @@ fn breed_success() {
 		// 检查拥有者
 		assert_eq!(KittyOwner::<Test>::get(kitty_id_3), Some(account_id));
 		// 检查创建成功事件
-		assert_has_event!(Event::<Test>::KittyCreated(account_id, kitty_id_3));
+		assert_has_event!(Event::<Test>::KittyCreatedAndBreed(account_id, kitty_id_3));
 	});
 }
 
 #[test]
 fn breed_failed_not_enough_balance() {
 	new_test_ext().execute_with(|| {
-		let account_id: u64 = 1;
-		let other_account_id: u64 = 1;
-		let kitty_id_1 = 1u32;
-		let kitty_id_2 = 2u32;
+		let account_id: u64 = 4;
+		let kitty_id_1 = 0u32;
+		let kitty_id_2 = 1u32;
 		// 创建Kitty
+		assert_ok!(KittiesModule::create(Origin::signed(account_id)));
 		assert_ok!(KittiesModule::create(Origin::signed(account_id)));
 		assert_ok!(KittiesModule::create(Origin::signed(account_id)));
 		// 繁殖
 		assert_noop!(
-			KittiesModule::breed(Origin::signed(other_account_id), kitty_id_1, kitty_id_1),
+			KittiesModule::breed(Origin::signed(account_id), kitty_id_1, kitty_id_2),
 			Error::<Test>::NotEnoughBalance
 		);
 	});
@@ -102,7 +134,7 @@ fn transfer_success() {
 	new_test_ext().execute_with(|| {
 		let account_id_1: u64 = 1;
 		let account_id_2: u64 = 2;
-		let kitty_id = 1u32;
+		let kitty_id = 0u32;
 		// 创建Kitty
 		assert_ok!(KittiesModule::create(Origin::signed(account_id_1)));
 		// 转让
@@ -117,7 +149,7 @@ fn transfer_failed_buyer_not_enough_balance() {
 	new_test_ext().execute_with(|| {
 		let account_id_1: u64 = 1;
 		let account_id_5: u64 = 5;
-		let kitty_id = 1u32;
+		let kitty_id = 0u32;
 		// 创建Kitty
 		assert_ok!(KittiesModule::create(Origin::signed(account_id_1)));
 		assert_noop!(

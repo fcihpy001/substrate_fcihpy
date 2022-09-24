@@ -57,8 +57,8 @@ pub mod pallet {
 
 	//最新kitty id
 	#[pallet::storage]
-	#[pallet::getter(fn last_kitty_id)]
-	pub type LastKittyId<T: Config> =
+	#[pallet::getter(fn next_kitty_id)]
+	pub type NextKittyId<T: Config> =
 		StorageValue<_, T::KittyIndex, ValueQuery, GetDefaultValue<T>>;
 
 	//存储kitty 详情
@@ -80,8 +80,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		KittyCreated(T::AccountId, T::KittyIndex),
-		KittyBred(T::AccountId, T::KittyIndex, Kitty),
+		KittyCreatedAndBreed(T::AccountId, T::KittyIndex),
 		KittyTransferred(T::AccountId, T::AccountId, T::KittyIndex),
 		KittyInSell(T::AccountId, T::KittyIndex, Option<BalanceOf<T>>),
 		KittySold(T::AccountId, T::AccountId, T::KittyIndex),
@@ -239,26 +238,29 @@ pub mod pallet {
 			T::Currency::reserve(&sender, stake_amount)
 				.map_err(|_| Error::<T>::NotEnoughBalance)?;
 
-			// 获取最后一个kittyid，并自增加1
-			let kitty_id = Self::last_kitty_id();
-			let kitty_id = kitty_id
-				.checked_add(&(T::KittyIndex::from(1_u8)))
-				.ok_or(Error::<T>::KittyIdOverflow)
-				.unwrap();
+
+			let kitty_id = Self::next_kitty_id();
+			if kitty_id ==  T::KittyIndex::max_value() {
+				return Err(Error::<T>::KittyIdOverflow.into());
+			}
 
 			// 生成新kitty实例
 			let kitty = Kitty { dna };
 
-			//保存数据
 			// 保存kitty实例与kittyid的对应关系
 			Kitties::<T>::insert(kitty_id, &kitty);
 			// 保存kittyid与所有者之间的对应关系
 			KittyOwner::<T>::insert(kitty_id, &sender);
+
+			// 获取最后一个kittyid，并自增加1
+			let next_kitty_id = kitty_id
+				.checked_add(&(T::KittyIndex::from(1_u8)))
+				.unwrap();
 			// 保存最后一个kittyid
-			LastKittyId::<T>::set(kitty_id);
+			NextKittyId::<T>::set(next_kitty_id);
 
 			//通报事件
-			Self::deposit_event(Event::KittyCreated(sender.clone(), kitty_id));
+			Self::deposit_event(Event::KittyCreatedAndBreed(sender.clone(), kitty_id));
 
 			Ok(().into())
 		}

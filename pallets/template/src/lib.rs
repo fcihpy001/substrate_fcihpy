@@ -14,10 +14,20 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+use sp_runtime::{
+	offchain::storage::StorageValueRef,
+	traits::Zero
+};
 #[frame_support::pallet]
 pub mod pallet {
+	use super::*;
+	use frame_support::inherent::Vec;
+	use frame_support::log;
+	use frame_support::log::log;
+	use core::time::Duration;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_io::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -97,6 +107,60 @@ pub mod pallet {
 					Ok(())
 				},
 			}
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn offchain_worker(block_number: BlockNumberFor<T>) {
+			log::info!("offchain workers! {:?} ", block_number);
+			let timeout = sp_io::offchain::timestamp()
+				// .add(Duration::from_millis(8000));
+				.add(sp_runtime::offchain::Duration::from_millis(8000));
+			sp_io::offchain::sleep_until(timeout);
+			if block_number %2u32.into() != Zero::zero() {
+				let key = Self::derive_key(block_number);
+				let val_ref = StorageValueRef::persistent(&key);
+				let random_slice = sp_io::offchain::random_seed();
+				let timestamp_u64 = sp_io::offchain::timestamp().unix_millis();
+				let value = (random_slice, timestamp_u64);
+				log::info!("in odd block, value to write: {:?}", value);
+				val_ref.set(&value);
+			} else {
+				let key = Self::derive_key(block_number - 1u32.into());
+				let mut val_ref = StorageValueRef::persistent(&key);
+				if let Ok(Some(value)) = val_ref.get::<([u8;32], u64)>() {
+					log::info!("in even block, value read: {:?}",value);
+					val_ref.clear();
+				}
+			}
+			log::info!("Leve form offchain workers : {:?}", block_number);
+		}
+		fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
+			log::info!("lifecycle: on_initialize! {:?}", block_number);
+			0
+		}
+		fn on_finalize(_n: BlockNumberFor<T>) {
+			log::info!("lifecycle: on_finalize");
+		}
+
+		fn on_idle(_n: BlockNumberFor<T>, _remaining_weight: Weight) -> Weight {
+			log::info!("lifecycle: on_idle");
+			0
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+
+		#[deny(clippy::clone_double_ref)]
+		fn derive_key(block_number: T::BlockNumber) -> Vec<u8> {
+			block_number.using_encoded(|encoded_bn| {
+				b"node_pallet_offchain::storage::"
+					.iter()
+					.chain(encoded_bn)
+					.copied()
+					.collect::<Vec<u8>>()
+			})
 		}
 	}
 }
