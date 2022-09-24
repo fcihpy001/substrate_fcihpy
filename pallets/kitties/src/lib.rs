@@ -14,7 +14,14 @@ pub mod pallet {
 
 	use frame_system::pallet_prelude::*;
 	use sp_io::hashing::blake2_128;
-	use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, CheckedAdd};
+	use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, CheckedAdd, Zero};
+	use frame_support::inherent::Vec;
+	use frame_system::offchain::SendSignedTransaction;
+	use frame_system::offchain::{AppCrypto, CreateSignedTransaction, Signer};
+	use sp_core::blake2_128;
+	use sp_io::offchain_index;
+	use sp_runtime::offchain::storage::StorageValueRef;
+	use sp_runtime::transaction_validity::InvalidTransaction::Call;
 
 	///接口配置
 	#[pallet::config]
@@ -36,6 +43,8 @@ pub mod pallet {
 
 		#[pallet::constant]
 		type MaxKittyIndex: Get<u32>;
+
+		type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 	}
 
 	#[pallet::pallet]
@@ -96,6 +105,10 @@ pub mod pallet {
 		NotForSale,
 		NotEnoughBalance,
 	}
+
+	const ONCHAIN_INDEX_KEY: &[u8] = b"kitty_pallet::index01";
+	#[derive(Debug, Encode, Decode, Default)]
+	struct IndexData<T: Config>(T::KittyIndex);
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -263,6 +276,73 @@ pub mod pallet {
 			Self::deposit_event(Event::KittyCreatedAndBreed(sender.clone(), kitty_id));
 
 			Ok(().into())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		fn derived_key(block_number: T::BlockNumber) -> Vec<u8> {
+			block_number.using_encoded(|encoded_bn| {
+				ONCHAIN_INDEX_KEY
+					.clone()
+					.into_iter()
+					.chain(b"/".into_iter())
+					.chain(encoded_bn)
+					.copied()
+					.collect::<Vec<u8>>()
+			})
+		}
+
+		fn save_kitty_to_indexing(kitty_id: T::KittyIndex) {
+			let key = Self::derived_key(frame_system::Module::<T>::block_number());
+			let data: IndexingData<T> = IndexingData(kitty_id);
+			offchain_index::set(&key, &data.encode());
+		}
+
+		fn send_signed_tx(kitty_id: T::KittyIndex, payload: u32) -> Result<(), &'static str> {
+			let signer = Signer::<T, T::AuthorityId>::all_accounts();
+			if !signer.can_sign() {
+				return Err(
+					"No local accounts available. Consider adding one via `author_insertKey` RPC.",
+				);
+			}
+
+			let results = signer.send_signed_transaction(|_account| Call::update_kitty {
+				kitty_id,
+				asset: payload,
+			});
+
+			for (acc, res) in &results {
+				match res {
+					Ok(()) => log::info!("[{:?}] Submitted data:{:?}", acc.id, (kitty_id, payload)),
+					Err(e) => log::error!("[{:?}] Failed to submit transaction: {:?}", acc.id, e),
+				}
+			}
+
+			Ok(())
+		}
+	}
+
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn offchain_worker(block_number: T::BlockNumber) {
+			let key = Self::derived_key(block_number);
+			let storage_ref = StorageValueRef::persistent(&key);
+
+			if let Ok(Some(data)) = storage_ref.get::<IndexingData<T>>() {
+				// Sleep 8000ms to simulate heavy calculation for kitty asset index.
+				let timeout = sp_io::offchain::timestamp()
+					.add(sp_runtime::offchain::Duration::from_millis(8000));
+				sp_io::offchain::sleep_until(timeout);
+
+				let kitty_id = data.0.into();
+
+				// if block_number % 2u32.into() != Zero::zero() {
+				// 	_ = Self::send_signed_tx(kitty_id, 1);
+				// } else {
+				// 	_ = Self::send_signed_tx(kitty_id, 2);
+				// }
+			}
 		}
 	}
 }

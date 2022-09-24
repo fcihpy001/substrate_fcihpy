@@ -40,6 +40,9 @@ pub mod pallet {
 		public_repos: u32,
 	}
 	use core::{convert::TryInto, fmt};
+	use frame_system::offchain::{SendSignedTransaction, Signer};
+	use sp_runtime::transaction_validity::InvalidTransaction::Call;
+
 	impl fmt::Debug for GithubInfo {
 		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 			write!(
@@ -203,29 +206,71 @@ pub mod pallet {
 		// 	})
 		// }
 
-		fn fetch_github_info() -> Result<GithubInfo, http::Error> {
-			let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(8_000));
-			let request =
-				http::Request::get("https://api.github.com/orgs/substrate-developer-hub");
-			let pending = request
-				.add_header("User-Agent", "Substrate-Offchain-Worker")
-				.deadline(deadline).send().map_err(|_| http::Error::IoError)?;
-			let response = pending.try_wait(deadline).map_err(|_| http::Error::DeadlineReached)??;
-			if response.code != 200 {
-				log::warn!("Unexpected status code: {}", response.code);
-				return Err(http::Error::Unknown)
+		// fn fetch_github_info() -> Result<GithubInfo, http::Error> {
+		// 	let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(8_000));
+		// 	let request =
+		// 		http::Request::get("https://api.github.com/orgs/substrate-developer-hub");
+		// 	let pending = request
+		// 		.add_header("User-Agent", "Substrate-Offchain-Worker")
+		// 		.deadline(deadline).send().map_err(|_| http::Error::IoError)?;
+		// 	let response = pending.try_wait(deadline).map_err(|_| http::Error::DeadlineReached)??;
+		// 	if response.code != 200 {
+		// 		log::warn!("Unexpected status code: {}", response.code);
+		// 		return Err(http::Error::Unknown)
+		// 	}
+		// 	let body = response.body().collect::<Vec<u8>>();
+		// 	let body_str = sp_std::str::from_utf8(&body).map_err(|_| {
+		// 		log::warn!("No UTF8 body");
+		// 		http::Error::Unknown
+		// 	})?;
+		//
+		// 	// parse the response str
+		// 	let gh_info: GithubInfo =
+		// 		serde_json::from_str(body_str).map_err(|_| http::Error::Unknown)?;
+		//
+		// 	Ok(gh_info)
+		// }
+
+		fn send_signed_tx(payload: Vec<u8>) -> Result<(), &'static str> {
+			let signer = Signer::<T, T::AuthorityId>::all_accounts();
+			if !signer.can_sign() {
+				return Err(
+					"No local accounts available. Consider adding one via `author_insertKey` RPC."
+				)
 			}
-			let body = response.body().collect::<Vec<u8>>();
-			let body_str = sp_std::str::from_utf8(&body).map_err(|_| {
-				log::warn!("No UTF8 body");
-				http::Error::Unknown
-			})?;
+			let results = signer.send_signed_transaction(|_account| {
+				Call::submit_data {
+					payload: payload.clone()
+				}
+			});
+			for (acc, res) in &results {
+				match res {
+					Ok(()) => log::info!("[{:?}] Submitted data:{:?}", acc.id, payload),
+					Err(e) => log::error!("[{:?}] Failed to submit transaction: {:?}", acc.id, e),
+				}
+			}
 
-			// parse the response str
-			let gh_info: GithubInfo =
-				serde_json::from_str(body_str).map_err(|_| http::Error::Unknown)?;
 
-			Ok(gh_info)
+			Ok(())
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+
+		fn validate_unsigned(source: TransactionSource,
+							 call: &Self::Call) -> TransactionValidity {
+			if let Call::submit_data_unsigned {n: _} = call {
+				ValidTransaction.with_tag_prefix("ExampleOffchainOwner")
+					.proirity(1000)
+					.and_provides(1)
+					.longevity(3)
+					.propagate(true)
+					.build()
+			} else {
+				InvalidTransaction.Call.into()
+			}
 		}
 	}
 }
