@@ -12,15 +12,15 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{Currency, ExistenceRequirement, Randomness, ReservableCurrency};
 
-	use frame_system::pallet_prelude::*;
-	use sp_io::hashing::blake2_128;
-	use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, CheckedAdd, Zero};
 	use frame_support::inherent::Vec;
 	use frame_system::offchain::SendSignedTransaction;
 	use frame_system::offchain::{AppCrypto, CreateSignedTransaction, Signer};
+	use frame_system::pallet_prelude::*;
 	use sp_core::blake2_128;
+	use sp_io::hashing::blake2_128;
 	use sp_io::offchain_index;
 	use sp_runtime::offchain::storage::StorageValueRef;
+	use sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, CheckedAdd, Zero};
 	use sp_runtime::transaction_validity::InvalidTransaction::Call;
 
 	///接口配置
@@ -251,9 +251,8 @@ pub mod pallet {
 			T::Currency::reserve(&sender, stake_amount)
 				.map_err(|_| Error::<T>::NotEnoughBalance)?;
 
-
 			let kitty_id = Self::next_kitty_id();
-			if kitty_id ==  T::KittyIndex::max_value() {
+			if kitty_id == T::KittyIndex::max_value() {
 				return Err(Error::<T>::KittyIdOverflow.into());
 			}
 
@@ -266,9 +265,7 @@ pub mod pallet {
 			KittyOwner::<T>::insert(kitty_id, &sender);
 
 			// 获取最后一个kittyid，并自增加1
-			let next_kitty_id = kitty_id
-				.checked_add(&(T::KittyIndex::from(1_u8)))
-				.unwrap();
+			let next_kitty_id = kitty_id.checked_add(&(T::KittyIndex::from(1_u8))).unwrap();
 			// 保存最后一个kittyid
 			NextKittyId::<T>::set(next_kitty_id);
 
@@ -321,7 +318,6 @@ pub mod pallet {
 			Ok(())
 		}
 	}
-
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {

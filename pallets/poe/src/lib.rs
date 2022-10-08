@@ -6,10 +6,16 @@ mod test;
 #[cfg(test)]
 mod mock;
 
-pub use pallet::*;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
+pub mod weights;
+
+pub use pallet::*;
+pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::weights::WeightInfo;
 	pub use frame_support::pallet_prelude::*;
 	use frame_support::{ensure, pallet_prelude::DispatchResultWithPostInfo};
 	use frame_system::ensure_signed;
@@ -25,6 +31,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxClaimLength: Get<u32>;
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::storage]
@@ -53,7 +60,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::create_claim(claim.len() as u32))]
 		pub fn create_claim(origin: OriginFor<T>, claim: Vec<u8>) -> DispatchResultWithPostInfo {
 			// 验证操作者签名信息
 			let sender = ensure_signed(origin)?;
@@ -76,7 +83,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		#[pallet::weight(10_000)]
+		#[pallet::weight(T::WeightInfo::revoke_claim(claim.len() as u32))]
 		pub fn revoke_claim(origin: OriginFor<T>, claim: Vec<u8>) -> DispatchResultWithPostInfo {
 			// 验证操作者权限
 			let sender = ensure_signed(origin)?;
@@ -99,7 +106,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		#[pallet::weight(10_000)]
+		#[pallet::weight(T::WeightInfo::transfer_claim(claim.len() as u32))]
 		pub fn transfer_claim(
 			origin: OriginFor<T>,
 			dest: T::AccountId,
@@ -132,7 +139,6 @@ pub mod pallet {
 			Self::deposit_event(Event::ClaimTransfered(reciver, claim));
 
 			Ok(().into())
-			
 		}
 	}
 }

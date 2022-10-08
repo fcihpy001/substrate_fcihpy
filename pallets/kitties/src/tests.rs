@@ -40,7 +40,6 @@ fn test_kitty_next_id() {
 // 		// assert_eq!(Kitties::<Test>::get(kitty_id), None);
 // 	})
 // }
-
 #[test]
 fn test_stack_count() {
 	new_test_ext().execute_with(|| {

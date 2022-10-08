@@ -85,28 +85,30 @@ fn revoke_claim_failed_when_claim_not_owner() {
 
 #[test]
 fn transfer_claim_success() {
-    new_test_ext().execute_with(|| {
-        let claim = vec![0,1];
-        PoeModule::create_claim(Origin::signed(1), claim.clone());
+	new_test_ext().execute_with(|| {
+		let claim = vec![0, 1];
+		PoeModule::create_claim(Origin::signed(1), claim.clone());
 
-        PoeModule::transfer_claim(Origin::signed(1), 666, claim.clone());
-        let bound_claim = BoundedVec::<u8, <Test as Config>::MaxClaimLength>::try_from(claim.clone()).unwrap();
-				assert_eq!(
-					Proofs::<Test>::get(&bound_claim),
-					Some((666, frame_system::Pallet::<Test>::block_number()))
-			) 
-    })
+		PoeModule::transfer_claim(Origin::signed(1), 666, claim.clone());
+		let bound_claim =
+			BoundedVec::<u8, <Test as Config>::MaxClaimLength>::try_from(claim.clone()).unwrap();
+		assert_eq!(
+			Proofs::<Test>::get(&bound_claim),
+			Some((666, frame_system::Pallet::<Test>::block_number()))
+		)
+	})
 }
 #[test]
 fn transfer_claim_failed_when_not_owner() {
-    new_test_ext().execute_with(|| {
-        let claim = vec![0,1];
-        PoeModule::create_claim(Origin::signed(1), claim.clone());
+	new_test_ext().execute_with(|| {
+		let claim = vec![0, 1];
+		PoeModule::create_claim(Origin::signed(1), claim.clone());
 
-        let bound_claim = BoundedVec::<u8, <Test as Config>::MaxClaimLength>::try_from(claim.clone()).unwrap();
-        assert_noop!(
-					PoeModule::transfer_claim(Origin::signed(2), 666, claim.clone()),
-					Error::<Test>::NotClaimOwner
-			);
-    })
+		let bound_claim =
+			BoundedVec::<u8, <Test as Config>::MaxClaimLength>::try_from(claim.clone()).unwrap();
+		assert_noop!(
+			PoeModule::transfer_claim(Origin::signed(2), 666, claim.clone()),
+			Error::<Test>::NotClaimOwner
+		);
+	})
 }

@@ -14,18 +14,15 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-use sp_runtime::{
-	offchain::storage::{StorageValueRef},
-	traits::Zero
-};
+use sp_runtime::{offchain::storage::StorageValueRef, traits::Zero};
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::inherent::Vec;
-	use frame_support::{log, sp_std};
-	use frame_support::log::log;
 	use core::time::Duration;
+	use frame_support::inherent::Vec;
+	use frame_support::log::log;
 	use frame_support::pallet_prelude::*;
+	use frame_support::{log, sp_std};
 	use frame_system::pallet_prelude::*;
 	use sp_io::*;
 	use sp_runtime::offchain::http;
@@ -194,7 +191,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-
 		// #[deny(clippy::clone_double_ref)]
 		// fn derive_key(block_number: T::BlockNumber) -> Vec<u8> {
 		// 	block_number.using_encoded(|encoded_bn| {
@@ -235,21 +231,17 @@ pub mod pallet {
 			let signer = Signer::<T, T::AuthorityId>::all_accounts();
 			if !signer.can_sign() {
 				return Err(
-					"No local accounts available. Consider adding one via `author_insertKey` RPC."
-				)
+					"No local accounts available. Consider adding one via `author_insertKey` RPC.",
+				);
 			}
-			let results = signer.send_signed_transaction(|_account| {
-				Call::submit_data {
-					payload: payload.clone()
-				}
-			});
+			let results = signer
+				.send_signed_transaction(|_account| Call::submit_data { payload: payload.clone() });
 			for (acc, res) in &results {
 				match res {
 					Ok(()) => log::info!("[{:?}] Submitted data:{:?}", acc.id, payload),
 					Err(e) => log::error!("[{:?}] Failed to submit transaction: {:?}", acc.id, e),
 				}
 			}
-
 
 			Ok(())
 		}
@@ -259,10 +251,10 @@ pub mod pallet {
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 
-		fn validate_unsigned(source: TransactionSource,
-							 call: &Self::Call) -> TransactionValidity {
-			if let Call::submit_data_unsigned {n: _} = call {
-				ValidTransaction.with_tag_prefix("ExampleOffchainOwner")
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			if let Call::submit_data_unsigned { n: _ } = call {
+				ValidTransaction
+					.with_tag_prefix("ExampleOffchainOwner")
 					.proirity(1000)
 					.and_provides(1)
 					.longevity(3)
