@@ -57,3 +57,13 @@ benchmarks! {
 
 	impl_benchmark_test_suite!(PoeModule, crate::mock::new_test_ext(), crate::mock::Test);
 }
+
+mod tests {
+	use super::*;
+	use crate::mock::{new_test_ext, Test};
+	use frame_support::assert_ok;
+
+	fn test_benchmarks() {
+		new_test_ext().execute_with(|| assert_ok!(tes_benchmark_create_claim::<Test>()))
+	}
+}
